@@ -31,13 +31,26 @@ std::condition_variable cv;
 // TODO: 每次调用会增加 count 的值，当count 的值达到 expect 的时候通知 waiter_thread
 void add_count_and_notify()
 {
-  std::scoped_lock slk(m);
-  count += 1;
+  // 加锁修改共享变量
+  {
+    std::unique_lock<std::mutex> lk(m);
+    count += 1;
+    // 当达到期望数量时，通知等待线程
+    if (count == expect_thread_num) {
+      // 释放锁前可以通知，唤醒等待方
+      lk.unlock();
+      cv.notify_one();
+      return;
+    }
+  }
 }
 
 void waiter_thread()
 {
   // TODO: 等待 count 的值达到 expect_thread_num，然后打印 count 的值
+  std::unique_lock<std::mutex> lk(m);
+  cv.wait(lk, [] { return count == expect_thread_num; });
+  // 被唤醒后，条件满足且持有锁，读取并校验
   std::cout << "Printing count: " << count << std::endl;
   assert(count == expect_thread_num);
 }

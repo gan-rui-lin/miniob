@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <thread>    // std::thread
 #include <vector>    // std::vector
 #include <cassert>   // assert
+#include <atomic>    // std::atomic, compare_exchange_strong
 
 // 一个简单的链表节点
 struct Node
@@ -26,15 +27,20 @@ struct Node
   Node *next;
 };
 
-Node *list_head(nullptr);
+std::atomic<Node *> list_head{nullptr};
 
 // 向 `list_head` 中添加一个值为 `val` 的 Node 节点。
 void append_node(int val)
 {
-  Node *old_head = list_head;
-  Node *new_node = new Node{val, old_head};
-  // TODO: 使用 compare_exchange_strong 来使这段代码线程安全。
-  list_head = new_node;
+  // 使用 CAS 将新节点无锁地推入链表头
+  // acquire 保证读取最新值
+  Node *expected = list_head.load(std::memory_order_acquire);
+  Node *new_node = new Node{val, expected};
+  while (!list_head.compare_exchange_strong(
+      expected, new_node, std::memory_order_release, std::memory_order_acquire)) {
+    // 失败时，expected 已更新为当前头指针，需要让新节点指向最新的头并重试
+    new_node->next = expected;
+  }
 }
 
 int main()
@@ -48,7 +54,7 @@ int main()
 
   // 注意：在 `append_node` 函数是线程安全的情况下，`list_head` 中将包含 50 个 Node 节点。
   int cnt = 0;
-  for (Node *it = list_head; it != nullptr; it = it->next) {
+  for (Node *it = list_head.load(std::memory_order_acquire); it != nullptr; it = it->next) {
     std::cout << ' ' << it->value;
     cnt++;
   }
@@ -57,8 +63,8 @@ int main()
   std::cout << cnt << std::endl;
 
   Node *it;
-  while ((it = list_head)) {
-    list_head = it->next;
+  while ((it = list_head.load(std::memory_order_relaxed))) {
+    list_head.store(it->next, std::memory_order_relaxed);
     delete it;
   }
   std::cout << "passed!" << std::endl;

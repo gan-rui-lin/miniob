@@ -27,6 +27,8 @@ scoped_lock 不支持手动锁定和解锁，也不支持条件变量。
 #include <thread>    // std::thread
 #include <vector>    // std::vector
 #include <cassert>   // assert
+#include <mutex>     // std::mutex
+
 
 struct Node
 {
@@ -39,10 +41,13 @@ Node *list_head(nullptr);
 // 向 `list_head` 中添加一个 value 为 `val` 的 Node 节点。
 void append_node(int val)
 {
+  static std::mutex mtx;
+  // 只能有一个线程读或写 list_head
+  std::lock_guard<std::mutex> lk(mtx);
+  // 读 list_head
   Node *old_head = list_head;
   Node *new_node = new Node{val, old_head};
-
-  // TODO: 使用 scoped_lock/unique_lock 来使这段代码线程安全。
+  // 写 list_head
   list_head = new_node;
 }
 

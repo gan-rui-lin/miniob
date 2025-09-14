@@ -25,12 +25,12 @@ class Foo
 public:
   Foo()
   {
-    // TODO: 添加必要的日志信息，观察函数何时调用。
+    std::cout << "Foo constructor called." << std::endl;
   }
 
   ~Foo()
   {
-    // TODO: 添加必要的日志信息，观察函数何时调用。
+    std::cout << "Foo destructor called." << std::endl;
   }
 
   void display() { std::cout << "Displaying Foo content." << std::endl; }
