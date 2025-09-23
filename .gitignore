@@ -24,6 +24,7 @@ GTAGS
 docs/book
 **/__pycache__
 #*#
+miniob-2024/
 
 # ignore generated files
 src/observer/sql/parser/lex_sql.cpp

@@ -152,22 +152,47 @@ int32_t DateType::date_to_days(int year, int month, int day)
     return INT32_MIN;
   }
 
-  // 计算自1970-01-01以来的天数
-  // 使用简单可靠的算法
+  // 使用标准的天数计算算法
+  // 这是经过验证的简单可靠算法
   
-  // 1970年1月1日作为基准点（第0天）
-  int base_year = 1970;
-  int base_day = 1;
+  // 1970年1月1日为第0天
+  const int BASE_YEAR = 1970;
+  const int BASE_MONTH = 1;
+  const int BASE_DAY = 1;
   
-  int64_t total_days = 0;
+  int total_days = 0;
   
-  // 计算年份差异的天数
-  for (int y = base_year; y < year; y++) {
+  // 如果是1970年之前的日期，返回负数天数
+  if (year < BASE_YEAR || (year == BASE_YEAR && month < BASE_MONTH) || 
+      (year == BASE_YEAR && month == BASE_MONTH && day < BASE_DAY)) {
+    // 处理1970年之前的日期（向前计算）
+    int y = year;
+    int m = month;
+    int d = day;
+    
+    // 计算到1970-01-01的天数（负数）
+    while (y < BASE_YEAR || (y == BASE_YEAR && m < BASE_MONTH) || 
+           (y == BASE_YEAR && m == BASE_MONTH && d < BASE_DAY)) {
+      d++;
+      if (d > days_in_month(y, m)) {
+        d = 1;
+        m++;
+        if (m > 12) {
+          m = 1;
+          y++;
+        }
+      }
+      total_days--;
+    }
+    return total_days;
+  }
+  
+  // 处理1970年及之后的日期
+  for (int y = BASE_YEAR; y < year; y++) {
     total_days += is_leap_year(y) ? 366 : 365;
   }
-  LOG_DEBUG("年份 %d, 基准年 %d, 年份天数: %lld", year, base_year, (long long)total_days);
   
-  // 计算月份差异的天数
+  // 计算当年的天数
   static const int month_days[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   for (int m = 1; m < month; m++) {
     total_days += month_days[m];
@@ -175,59 +200,84 @@ int32_t DateType::date_to_days(int year, int month, int day)
       total_days += 1; // 闰年2月多一天
     }
   }
-  LOG_DEBUG("加上月份天数后: %lld", (long long)total_days);
   
-  // 加上天数差异
-  total_days += (day - base_day);
-  LOG_DEBUG("最终计算结果: %lld 天", (long long)total_days);
+  // 加上当月的天数
+  total_days += (day - BASE_DAY);
   
-  // 检查是否溢出
-  if (total_days < INT32_MIN || total_days > INT32_MAX) {
-    return INT32_MIN;
-  }
-
+  LOG_DEBUG("日期 %d-%d-%d 转换为 %d 天", year, month, day, total_days);
+  
   return (int32_t)total_days;
 }
 
 void DateType::days_to_date(int32_t days, int &year, int &month, int &day)
 {
-  // 将1970-01-01以来的天数转换为日期
-  // 使用与date_to_days相对应的逆算法
   LOG_DEBUG("days_to_date输入: %d天", days);
   
-  int64_t remaining_days = days;
+  // 1970年1月1日为基准
   year = 1970;
+  month = 1;
+  day = 1;
   
-  // 计算年份
-  while (remaining_days >= 365) {
-    int year_days = is_leap_year(year) ? 366 : 365;
-    if (remaining_days >= year_days) {
-      remaining_days -= year_days;
-      year++;
-    } else {
-      break;
-    }
+  if (days == 0) {
+    // 正好是1970-01-01
+    LOG_DEBUG("days_to_date转换: %d天 -> %d-%d-%d", days, year, month, day);
+    return;
   }
   
-  // 计算月份
-  static const int month_days[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  month = 1;
-  while (month <= 12) {
-    int current_month_days = month_days[month];
-    if (month == 2 && is_leap_year(year)) {
-      current_month_days = 29;
+  if (days > 0) {
+    // 1970年之后的日期
+    int32_t remaining_days = days;
+    
+    // 计算年份
+    while (remaining_days > 0) {
+      int year_days = is_leap_year(year) ? 366 : 365;
+      if (remaining_days >= year_days) {
+        remaining_days -= year_days;
+        year++;
+      } else {
+        break;
+      }
     }
     
-    if (remaining_days >= current_month_days) {
-      remaining_days -= current_month_days;
-      month++;
-    } else {
-      break;
+    // 计算月份
+    static const int month_days[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    month = 1;
+    while (month <= 12 && remaining_days > 0) {
+      int current_month_days = month_days[month];
+      if (month == 2 && is_leap_year(year)) {
+        current_month_days = 29;
+      }
+      
+      if (remaining_days >= current_month_days) {
+        remaining_days -= current_month_days;
+        month++;
+      } else {
+        break;
+      }
+    }
+    
+    // 剩余的就是天数
+    day = remaining_days + 1;
+  } else {
+    // 1970年之前的日期
+    int32_t remaining_days = -days;
+    
+    // 向前回退
+    while (remaining_days > 0) {
+      day--;
+      if (day < 1) {
+        month--;
+        if (month < 1) {
+          year--;
+          month = 12;
+        }
+        day = days_in_month(year, month);
+      }
+      remaining_days--;
     }
   }
   
-  // 剩余的就是天数
-  day = (int)remaining_days + 1;
+  LOG_DEBUG("days_to_date转换: %d天 -> %d-%d-%d", days, year, month, day);
 }
 
 RC DateType::parse_date_string(const string &date_str, int &year, int &month, int &day)
