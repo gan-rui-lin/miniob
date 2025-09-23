@@ -88,6 +88,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         INT_T
         STRING_T
         FLOAT_T
+        DATE_T
         VECTOR_T
         HELP
         EXIT
@@ -111,6 +112,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         FIELDS
         TERMINATED
         ENCLOSED
+        DATE_STR
         EQ
         LT
         GT
@@ -155,6 +157,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <floats> FLOAT
 %token <cstring> ID
 %token <cstring> SSS
+%token <cstring> DATE_STR
 //非终结符
 
 /** type 定义了各种解析后的结果输出的是什么类型。类型对应了 union 中的定义的成员变量名称 **/
@@ -380,6 +383,7 @@ type:
     INT_T      { $$ = static_cast<int>(AttrType::INTS); }
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     | VECTOR_T { $$ = static_cast<int>(AttrType::VECTORS); }
     ;
 primary_key:
@@ -445,6 +449,21 @@ value:
       char *tmp = common::substr($1,1,strlen($1)-2);
       $$ = new Value(tmp);
       free(tmp);
+    }
+    |DATE_STR {
+      // 创建日期值，去掉引号
+      char *date_string = common::substr($1, 1, strlen($1) - 2);
+      Value *date_val = new Value();
+      date_val->set_type(AttrType::DATES);
+      RC rc = DataType::type_instance(AttrType::DATES)->set_value_from_str(*date_val, date_string);
+      free(date_string);
+      if (rc != RC::SUCCESS) {
+        delete date_val;
+        yyerror(&@1, sql_string, sql_result, scanner, "Invalid date format");
+        YYERROR;
+      }
+      $$ = date_val;
+      @$ = @1;
     }
     ;
 storage_format:

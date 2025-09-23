@@ -49,6 +49,13 @@ public:
   explicit Value(const char *s, int len = 0);
   explicit Value(const string_t &val);
 
+  // 日期构造函数（以天数为参数）
+  static Value from_date(int32_t days) {
+    Value v;
+    v.set_date(days);
+    return v;
+  }
+
   Value(const Value &other);
   Value(Value &&other);
 
@@ -112,6 +119,7 @@ public:
   string   get_string() const;
   string_t get_string_t() const;
   bool     get_boolean() const;
+  int32_t  get_date() const;
 
 public:
   void set_int(int val);
@@ -119,6 +127,7 @@ public:
   void set_string(const char *s, int len = 0);
   void set_empty_string(int len);
   void set_string_from_other(const Value &other);
+  void set_date(int32_t val);
 
 private:
   AttrType attr_type_ = AttrType::UNDEFINED;

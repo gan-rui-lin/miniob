@@ -128,6 +128,10 @@ void Value::set_data(char *data, int length)
       value_.bool_value_ = *(int *)data != 0;
       length_            = length;
     } break;
+    case AttrType::DATES: {
+      value_.int_value_ = *(int32_t *)data;  // 存储为天数
+      length_           = length;
+    } break;
     default: {
       LOG_WARN("unknown data type: %d", attr_type_);
     } break;
@@ -206,6 +210,10 @@ void Value::set_value(const Value &value)
     case AttrType::BOOLEANS: {
       set_boolean(value.get_boolean());
     } break;
+    case AttrType::DATES: {
+      set_int(value.get_int());  // 复制天数值
+      attr_type_ = AttrType::DATES;  // 确保类型正确
+    } break;
     default: {
       ASSERT(false, "got an invalid value type");
     } break;
@@ -267,6 +275,9 @@ int Value::get_int() const
     case AttrType::BOOLEANS: {
       return (int)(value_.bool_value_);
     }
+    case AttrType::DATES: {
+      return value_.int_value_;  // 返回天数
+    }
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return 0;
@@ -294,6 +305,9 @@ float Value::get_float() const
     } break;
     case AttrType::BOOLEANS: {
       return float(value_.bool_value_);
+    } break;
+    case AttrType::DATES: {
+      return float(value_.int_value_);  // 日期作为天数返回
     } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
@@ -342,10 +356,45 @@ bool Value::get_boolean() const
     case AttrType::BOOLEANS: {
       return value_.bool_value_;
     } break;
+    case AttrType::DATES: {
+      return value_.int_value_ != 0;  // 非零日期为true
+    } break;
     default: {
       LOG_WARN("unknown data type. type=%d", attr_type_);
       return false;
     }
   }
   return false;
+}
+
+void Value::set_date(int32_t val)
+{
+  reset();
+  attr_type_        = AttrType::DATES;
+  value_.int_value_ = val;
+  length_           = sizeof(val);
+}
+
+int32_t Value::get_date() const
+{
+  switch (attr_type_) {
+    case AttrType::DATES: {
+      return value_.int_value_;
+    }
+    case AttrType::CHARS: {
+      // 尝试从字符串解析日期
+      Value temp_val;
+      temp_val.set_type(AttrType::DATES);
+      RC rc = DataType::type_instance(AttrType::DATES)->set_value_from_str(temp_val, value_.pointer_value_);
+      if (rc == RC::SUCCESS) {
+        return *(int32_t *)temp_val.data();
+      }
+      LOG_TRACE("failed to convert string to date. s=%s", value_.pointer_value_);
+      return 0;
+    }
+    default: {
+      LOG_WARN("cannot convert %s to date", attr_type_to_string(attr_type_));
+      return 0;
+    }
+  }
 }
