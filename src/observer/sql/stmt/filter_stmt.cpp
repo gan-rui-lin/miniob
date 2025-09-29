@@ -128,5 +128,32 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, unordered_map<st
   filter_unit->set_comp(comp);
 
   // 检查两个类型是否能够比较
+  const FilterObj &left_obj = filter_unit->left();
+  const FilterObj &right_obj = filter_unit->right();
+  
+  AttrType left_type = AttrType::UNDEFINED;
+  AttrType right_type = AttrType::UNDEFINED;
+  
+  if (left_obj.is_attr) {
+    left_type = left_obj.field.attr_type();
+  } else {
+    left_type = left_obj.value.attr_type();
+  }
+  
+  if (right_obj.is_attr) {
+    right_type = right_obj.field.attr_type();
+  } else {
+    right_type = right_obj.value.attr_type();
+  }
+  
+  // 检查类型是否匹配
+  if (left_type != right_type) {
+    LOG_WARN("Type mismatch in filter condition: left_type=%s, right_type=%s", 
+             attr_type_to_string(left_type), attr_type_to_string(right_type));
+    delete filter_unit;
+    filter_unit = nullptr;
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  
   return rc;
 }

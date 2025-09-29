@@ -10,6 +10,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/type/date_type.h"
 #include "common/type/char_type.h"
+#include "common/time/datetime.h"
 #include "common/value.h"
 #include "common/log/log.h"
 #include "common/lang/comparator.h"
@@ -19,6 +20,8 @@ See the Mulan PSL v2 for more details. */
 
 int DateType::compare(const Value &left, const Value &right) const
 {
+
+  ASSERT(left.attr_type() == AttrType::DATES && right.attr_type() == AttrType::DATES, "invalid type");
   if (left.attr_type() != AttrType::DATES || right.attr_type() != AttrType::DATES) {
     LOG_WARN("invalid type to compare. left=%s, right=%s", 
         attr_type_to_string(left.attr_type()), attr_type_to_string(right.attr_type()));
@@ -77,43 +80,13 @@ RC DateType::cast_to(const Value &val, AttrType type, Value &result) const
 RC DateType::set_value_from_str(Value &val, const string &data) const
 {
   int year, month, day;
-  RC rc = parse_date_string(data, year, month, day);
-  if (rc != RC::SUCCESS) {
-    return rc;
-  }
-
-  if (!is_valid_date(year, month, day)) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  int32_t days = date_to_days(year, month, day);
-  LOG_DEBUG("解析日期 %s -> %d-%d-%d -> %d 天", data.c_str(), year, month, day, days);
-  if (days == INT32_MIN) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  val.set_type(AttrType::DATES);
-  val.set_data((char *)&days, sizeof(days));
+  sscanf(data.c_str(), "%d-%d-%d", &year, &month, &day);
+  int julian_day = common::DateTime::julian_date(year, month, day);
+  long long days = julian_day - common::DateTime::JULIAN_19700101;
+  val.set_date(days);
   return RC::SUCCESS;
 }
 
-RC DateType::to_string(const Value &val, string &result) const
-{
-  if (val.attr_type() != AttrType::DATES) {
-    return RC::INVALID_ARGUMENT;
-  }
-
-  int32_t days = *(int32_t *)val.data();
-  LOG_DEBUG("to_string读取到天数: %d", days);
-  int year, month, day;
-  days_to_date(days, year, month, day);
-  LOG_DEBUG("days_to_date转换: %d天 -> %d-%d-%d", days, year, month, day);
-
-  char buffer[16];
-  snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d", year, month, day);
-  result = buffer;
-  return RC::SUCCESS;
-}
 
 bool DateType::is_leap_year(int year)
 {
@@ -279,6 +252,26 @@ void DateType::days_to_date(int32_t days, int &year, int &month, int &day)
   
   LOG_DEBUG("days_to_date转换: %d天 -> %d-%d-%d", days, year, month, day);
 }
+
+RC DateType::to_string(const Value &val, string &result) const
+{
+  if (val.attr_type() != AttrType::DATES) {
+    return RC::INVALID_ARGUMENT;
+  }
+
+  int32_t days = *(int32_t *)val.data();
+  LOG_DEBUG("to_string读取到天数: %d", days);
+  int year, month, day;
+  days_to_date(days, year, month, day);
+  LOG_DEBUG("days_to_date转换: %d天 -> %d-%d-%d", days, year, month, day);
+
+  char buffer[16];
+  snprintf(buffer, sizeof(buffer), "%04d-%02d-%02d", year, month, day);
+  result = buffer;
+  return RC::SUCCESS;
+}
+
+
 
 RC DateType::parse_date_string(const string &date_str, int &year, int &month, int &day)
 {

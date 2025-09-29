@@ -42,6 +42,9 @@ Value::Value(const Value &other)
     case AttrType::CHARS: {
       set_string_from_other(other);
     } break;
+    case AttrType::DATES: {
+      set_date_from_other(other);
+    } break;
 
     default: {
       this->value_ = other.value_;
@@ -375,6 +378,33 @@ void Value::set_date(int32_t val)
   attr_type_        = AttrType::DATES;
   value_.int_value_ = val;
   length_           = sizeof(val);
+}
+
+void Value::set_date_from_other(const Value &other)
+{
+  ASSERT(attr_type_ == AttrType::DATES, "attr type is not DATES");
+  switch (other.attr_type_) {
+    case AttrType::DATES: {
+      set_date(other.get_date());
+    } break;
+    // case AttrType::CHARS: {
+    //   // 尝试从字符串解析日期
+    //   Value temp_val;
+    //   temp_val.set_type(AttrType::DATES);
+    //   RC rc = DataType::type_instance(AttrType::DATES)->set_value_from_str(temp_val, other.value_.pointer_value_);
+    //   if (rc == RC::SUCCESS) {
+    //     set_date(*(int32_t *)temp_val.data());
+    //   } else {
+    //     LOG_TRACE("failed to convert string to date. s=%s", other.value_.pointer_value_);
+    //     set_date(-1);  // 设置为null日期
+    //   }
+    // } break;
+    default: {
+      printf("???????");
+      LOG_WARN("cannot convert %s to date", attr_type_to_string(other.attr_type_));
+      set_date(-1);  // 设置为null日期
+    } break;
+  }
 }
 
 Value*  Value::try_set_date_from_string(const char *s, int len) {
