@@ -400,7 +400,7 @@ void Value::set_date_from_other(const Value &other)
     //   }
     // } break;
     default: {
-      printf("???????");
+      // printf("???????");
       LOG_WARN("cannot convert %s to date", attr_type_to_string(other.attr_type_));
       set_date(-1);  // 设置为null日期
     } break;
