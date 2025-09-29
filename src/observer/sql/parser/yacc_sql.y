@@ -112,7 +112,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         FIELDS
         TERMINATED
         ENCLOSED
-        DATE_STR
+        /* DATE_STR */
         EQ
         LT
         GT
@@ -451,19 +451,11 @@ value:
       free(tmp);
     }
     |DATE_STR {
-      // 创建日期值，去掉引号
-      char *date_string = common::substr($1, 1, strlen($1) - 2);
-      Value *date_val = new Value();
-      date_val->set_type(AttrType::DATES);
-      RC rc = DataType::type_instance(AttrType::DATES)->set_value_from_str(*date_val, date_string);
-      free(date_string);
-      if (rc != RC::SUCCESS) {
-        delete date_val;
-        yyerror(&@1, sql_string, sql_result, scanner, "Invalid date format");
-        YYERROR;
-      }
-      $$ = date_val;
-      @$ = @1;
+      // 如果不合法的 date 值， fall through 成 string 类型的 Value
+      char* str = common::substr($1, 1, strlen($1) - 2);
+      int n = strlen($1) - 2;
+      $$ = Value::try_set_date_from_string(str, n);
+      free(str);  // 释放 substr 分配的内存
     }
     ;
 storage_format:

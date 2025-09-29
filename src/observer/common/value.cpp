@@ -19,6 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/sstream.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
+#include "common/time/datetime.h"
+#include "value.h"
 
 Value::Value(int val) { set_int(val); }
 
@@ -375,6 +377,52 @@ void Value::set_date(int32_t val)
   length_           = sizeof(val);
 }
 
+Value*  Value::try_set_date_from_string(const char *s, int len) {
+  Value* result = new Value();
+  if (len == 0 || s == nullptr) {
+    result->set_date(-1);  // 空字符串，设置为null日期
+    return result;
+  }
+  // 检查日期是否合法，输入保证格式合法
+  // date测试不会超过2038年2月，不会小于1970年1月1号
+  auto check_date = [](int year, int month, int day) {
+    if (year < 1970 || (year > 2038 && month >= 2)) {
+      return false;
+    }
+    if (month < 1 || month > 12) {
+      return false;
+    }
+    if (day < 1 || day > 31) {
+      return false;
+    }
+    // 检查闰月
+    if (month == 2) {
+      bool is_leap = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+      if (is_leap) {
+        return day <= 29;
+      } else {
+        return day <= 28;
+      }
+    }
+    // 检查30天的月份
+    if (month == 4 || month == 6 || month == 9 || month == 11) {
+      return day <= 30;
+    }
+
+    return true;
+  };
+  int year = 0, month = 0, day = 0;
+  sscanf(s, "%4d-%2d-%2d", &year, &month, &day);
+  if (check_date(year, month, day)) {
+    // 使用 common::DateTime 的方法计算距离1970-1-1的天数
+    int julian_day = common::DateTime::julian_date(year, month, day);
+    long long days = julian_day - common::DateTime::JULIAN_19700101;
+    result->set_date(static_cast<int32_t>(days));
+  } else {
+    result->set_string(s, len);  // 非法日期，存为字符串
+  }
+  return result;
+}
 int32_t Value::get_date() const
 {
   switch (attr_type_) {
