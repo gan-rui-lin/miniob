@@ -416,9 +416,9 @@ Value*  Value::try_set_date_from_string(const char *s, int len) {
   // 检查日期是否合法，输入保证格式合法
   // date测试不会超过2038年2月，不会小于1970年1月1号
   auto check_date = [](int year, int month, int day) {
-    if (year < 1970 || (year > 2038 && month >= 2)) {
-      return false;
-    }
+    // if (year < 1970 || (year > 2038 && month >= 2)) {
+    //   return false;
+    // }
     if (month < 1 || month > 12) {
       return false;
     }
